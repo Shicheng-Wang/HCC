@@ -1,144 +1,118 @@
-############Figure 3A############
-
-library(multtest)
 library(Seurat)
-library(dplyr)
-library(mindr)
-library(tidyverse)
-library(ggsci)
-mycolor <- c(pal_npg()(10),pal_jama()(7), pal_uchicago()(7), pal_jama()(7))
+############Figure 3A############
+library(msigdbr) 
+library(fgsea)
+library(Seurat)
 
-Tcell <- NormalizeData(Tcell, normalization.method = "LogNormalize", scale.factor = 10000)
-Tcell <- FindVariableFeatures(Tcell, selection.method = "vst", nfeatures = 2000)
-DefaultAssay(Tcell) <- "integrated"
-Tcell <- ScaleData(Tcell, features = rownames(Tcell))
-Tcell <- RunPCA(Tcell, features = VariableFeatures(object = Tcell))
-Tcell <- JackStraw(Tcell, num.replicate = 100)
-Tcell <- ScoreJackStraw(Tcell, dims = 1:20)
-ElbowPlot(Tcell)
-Tcell <- FindNeighbors(Tcell, dims = 1:15) 
-Tcell <- FindClusters(Tcell, resolution = 0.7) 
-Tcell <- RunUMAP(Tcell, dims = 1:30) 
-DimPlot(Tcell, reduction = "umap", label = TRUE,cols = mycolor, raster=FALSE) + NoLegend()
+DefaultAssay(DCs) <- "RNA"
+markers <- FindMarkers(DCs, ident.1 = "MTT1_7d", ident.2 = "MTT1_0d",group.by = "group_day",
+                       min.pct = 0.1, logfc.threshold = 0)  
+markers$genes = rownames(markers)
+cluster.genes<- markers %>% arrange(desc(avg_log2FC)) %>% dplyr::select(genes, avg_log2FC)
+ranks<- deframe(cluster.genes)
+####GSEA####
+mdb_c2 <- msigdbr(species = "Homo sapiens", category = "C2")
+fgsea_sets = mdb_c2 [grep("KEGG",mdb_c2 $gs_name),] %>% split(x = .$gene_symbol, f = .$gs_name)
+length(fgsea_sets)
+fgseaRes<- fgsea(fgsea_sets, stats = ranks, nperm = 1000)
+write.csv(fgseaRes[,1:7], "DCs_KEGG_7dvs0d.csv")
+mdb_c2 <- msigdbr(species = "Homo sapiens", category = "C2")
+fgsea_sets = mdb_c2 [grep("REACTOME",mdb_c2 $gs_name),] %>% split(x = .$gene_symbol, f = .$gs_name)
+length(fgsea_sets)
+fgseaRes<- fgsea(fgsea_sets, stats = ranks, nperm = 1000)
+write.csv(fgseaRes[,1:7], "DCs_REACTOME_7dvs0d.csv")
+
 
 ############Figure 3B############
-gene_cell_exp <- AverageExpression(Tcell,
-                                   features = c("CD4","CD8A",
-                                                "LTB","TNFSF10","TNFRSF4","GATA3","IL7R",
-                                                "TCF7","CCR7","SELL","LEF1",
-                                                "GZMB","PRF1","FGFBP2","CX3CR1","ZNF683","GNLY",
-                                                "TRDC","TRGC1","TRGC2",
-                                                "GZMK","GZMA","CMC1","EOMES",
-                                                "SLC4A10","KLRB1","CXCR6","NCR3","CEBPD",
-                                                "FOXP3","IL2RA","CTLA4","TNFRSF18","LIMS1",
-                                                "XCL1","XCL2",
-                                                "HSPA1A","HSPA1B","DUSP1","HSP90AA1","DNAJB1",
-                                                "PDCD1","LAG3","TOX","TIGIT","HAVCR2"),
-                                   group.by = 'ident',
+gene_cell_exp <- AverageExpression(cDC,
+                                   features = c("IL12A","IL15","IL18","CD86","CD1D"                                   ),
+                                   group.by = 'group_day',
                                    slot = 'data') 
 gene_cell_exp <- as.data.frame(gene_cell_exp$RNA)
+write.csv(gene_cell_exp,"cDC mature.csv")
 
-library(ComplexHeatmap)
-col_cluster <- setNames(c(rep("#9ECABE",2), rep("#F6F5B4",5),
-                          rep("gray",4), rep("#E3AD68",6),
-                          rep("#9ECABE",3), rep("#F6F5B4",4),
-                          rep("gray",5), rep("#E3AD68",5),
-                          rep("#9ECABE",2), rep("#F6F5B4",5),
-                          rep("gray",5)),rownames(marker_exp))
-
-row_info = rowAnnotation(foo = anno_text(rownames(marker_exp), 
-                                         location = 0, 
-                                         just = "left",
-                                         gp = gpar(fill = col_cluster, 
-                                                   col = "black"),
-                                         width = max_text_width(rownames(marker_exp))*1.2))
-Heatmap(marker_exp, cluster_rows = F, cluster_columns = F, show_column_names = F, show_row_names = T,
-        column_title = NULL, heatmap_legend_param = list( title=' '), 
-        col = colorRampPalette(c("#87CEFA","white","red"))(100), border = 'black',rect_gp = gpar(col = "black", lwd = 1),
-        row_names_gp = gpar(fontsize = 10), column_names_gp = gpar(fontsize = 10),)+row_info
 
 ############Figure 3C############
+library(ggsignif)
+VlnPlot(NK, features = c("FCGR3A"),  group.by = "group_day",raster=FALSE, y.max = 6)  + NoLegend()+
+  geom_signif(comparisons =  list(c("MTT1_0d", "MTT1_7d")),y_position= 5.1,  tip_length = 0.04, vjust=0.2)+
+  geom_signif(comparisons =  list(c("MTT1_0d", "MTT2_30d")),y_position= 5.5,  tip_length = 0.04, vjust=0.2) |
+  VlnPlot(NK, features = c("GZMB"), group.by = "group_day",raster=FALSE, y.max = 6)+NoLegend()+
+  geom_signif(comparisons =  list(c("MTT1_0d", "MTT1_7d")),y_position= 5.1,  tip_length = 0.04, vjust=0.2)+
+  geom_signif(comparisons =  list(c("MTT1_0d", "MTT2_30d")),y_position= 5.5,  tip_length = 0.04, vjust=0.2) |
+  VlnPlot(NK, features = c("PRF1"), group.by = "group_day",raster=FALSE, y.max = 6)+NoLegend()+
+  geom_signif(comparisons =  list(c("MTT1_0d", "MTT1_7d")),y_position= 5.1,  tip_length = 0.04, vjust=0.2)+
+  geom_signif(comparisons =  list(c("MTT1_0d", "MTT2_30d")),y_position= 5.5,  tip_length = 0.04, vjust=0.2)
+
+
+############Figure 3D############
 library(ggplot2)
-library(UCell)
-library(ggsignif)
-markers <- list()
-markers$naive <- c("TCF7", "CCR7", "SELL", "LEF1")
-markers$dysfunction <- c("PDCD1", "CTLA4", "TIGIT", "HAVCR2", "LAG3", "LAYN","TOX")
-markers$cytotoxic <- c("PRF1","IFNG", "GZMA", "GZMB", "GZMH", "GNLY",  "NKG7",
-                       "KLRK1","KLRB1","KLRD1","CTSW","CST7")
-Tcell_Ucell <- AddModuleScore_UCell(Tcell, features = markers)
-signature.names <- paste0(names(markers), "_UCell")
-library(ggsignif)
-library(ggsci)
-mycolor <- c(pal_npg()(10),pal_jama()(7), pal_uchicago()(7), pal_jama()(7))
-library(ggrastr)
-library(dplyr)
-data<- FetchData(Tcell_Ucell,vars = c("cluster","naive_UCell"))
-data$cellid <- case_when(data$cluster ==unique(data$cluster)[1] ~ "CD4_LIMS1",
-                         data$cluster ==unique(data$cluster)[2] ~ 'CD4_Cytotoxic',
-                         data$cluster ==unique(data$cluster)[3] ~ 'T_LTB',
-                         data$cluster ==unique(data$cluster)[4] ~ 'CD4_CCR7',
-                         data$cluster ==unique(data$cluster)[5] ~ 'MAIT',
-                         data$cluster ==unique(data$cluster)[6] ~ 'GDT',
-                         data$cluster ==unique(data$cluster)[7] ~ 'CD8_GZMK',
-                         data$cluster ==unique(data$cluster)[8] ~ 'CD8_Cytotoxic',
-                         data$cluster ==unique(data$cluster)[9] ~ 'CD4_FOXP3',
-                         data$cluster ==unique(data$cluster)[10] ~ 'CD8_CCR7',
-                         data$cluster ==unique(data$cluster)[11] ~ 'CD8_XCL1',
-                         data$cluster ==unique(data$cluster)[12] ~ 'CD8_HSPA1A'
-)
-colors <- mycolor
+library(ggVolcano)
 
-ggplot(data, aes(x=cellid,y=naive_UCell,fill=cellid,color=cellid) ) +
-  theme_bw()+RotatedAxis()+
-  theme(panel.grid = element_blank(),
-        axis.text.x=element_text(size=1),
-        axis.text.y = element_text(size=10),
-        plot.title = element_text(hjust = 0.5),
-        legend.position = 'none')+
-  labs(x=NULL,y=NULL,title = "naive_UCell")+ 
-  geom_jitter_rast(col="#00000033", pch=19,cex=2, position = position_jitter(0.2))+
-  geom_boxplot(position=position_dodge(0),outliers = F,)+
-  scale_fill_manual(values = colors)+
-  geom_boxplot(position=position_dodge(0),color='black',
-               outlier.colour  = NA,outlier.fill=NA,outlier.shape=NA)+
-  geom_signif(comparisons =  list(c("MTT1_0d", "MTT1_7d")),y_position= 0.78,  tip_length = 0.04, vjust=0.2)+
-  geom_signif(comparisons =  list(c("MTT1_0d", "MTT2_30d")),y_position= 0.83,  tip_length = 0.04, vjust=0.2) 
+Bcell.markers <- FindMarkers(Bcell, ident.1 = "MTT1_7d", ident.2 = "MTT1_0d", group.by = "group_day",
+                             only.pos = F, min.pct = 0.25, logfc.threshold = 0)
+
+data <- add_regulate(Bcell.markers, log2FC_name = "avg_log2FC",
+                     fdr_name = "p_val_adj",log2FC = 0.5, fdr = 0.05)
+gene <- rownames(data)
+data <- cbind(gene,data)
+
+ggvolcano(data, x = "log2FoldChange", y = "padj", label = "gene", add_line = F,
+          custom_label = c("IGHG1","IGHG4", "IGHG3", "IGHA1", 
+                           "JCHAIN","IGHA2","XBP1","MZB1", "SEC11C", "HSP90B1","IGKC", "CD69",
+                           "AFF3",
+                           "AL158823.1",
+                           "CXCR4",
+                           "DUSP1"
+          ),  output = FALSE)
 
 
+############Figure 3E############
+library(msigdbr) 
+library(fgsea)
+library(Seurat)
+
+DefaultAssay(Bcell) <- "RNA"
+markers <- FindMarkers(Bcell, ident.1 = "MTT1_7d", ident.2 = "MTT1_0d",group.by = "group_day",
+                       min.pct = 0.1, logfc.threshold = 0)  
+markers$genes = rownames(markers)
+cluster.genes<- markers %>% arrange(desc(avg_log2FC)) %>% dplyr::select(genes, avg_log2FC)
+ranks<- deframe(cluster.genes)
+####GSEA####
+mdb_c5 <- msigdbr(species = "Homo sapiens", category = "C5")
+fgsea_sets = mdb_c5 [grep("GOBP",mdb_c5 $gs_name),] %>% split(x = .$gene_symbol, f = .$gs_name)
+length(fgsea_sets)
+fgseaRes<- fgsea(fgsea_sets, stats = ranks, nperm = 1000)
+write.csv(fgseaRes[,1:7], "Bcell_GOBP_7dvs0d.csv")
 
 ############Figure 3F############
-markers = c("CD274","ARG1","MRC1","CCL8","CD163","CLEC10A","CD9")
+Bcell <- NormalizeData(Bcell, normalization.method = "LogNormalize", scale.factor = 10000)
+Bcell <- FindVariableFeatures(Bcell, selection.method = "vst", nfeatures = 2000)
+Bcell <- ScaleData(Bcell, features = rownames(Bcell))
+Bcell <- RunPCA(Bcell, features = VariableFeatures(object = Bcell))
+Bcell <- JackStraw(Bcell, num.replicate = 100)
+Bcell <- ScoreJackStraw(Bcell, dims = 1:20)
+ElbowPlot(Bcell)
+Bcell <- FindNeighbors(Bcell, dims = 1:15) 
+Bcell <- FindClusters(Bcell, resolution = 0.4) 
+Bcell <- RunUMAP(Bcell, dims = 1:20)
+DimPlot(Bcell, reduction = "umap", label = TRUE,  label.size = 3) 
 
-DotPlot(pbmc, features = markers,group.by = "sample", assay='RNA' ) + theme(panel.grid = element_blank(), 
-        axis.text.x=element_text(angle = 45, hjust = 0.5,vjust=0.5))+ 
-  labs(x=NULL,y=NULL) + 
-  guides(size = guide_legend("Percent Expression") )+ #legend
-  scale_color_gradientn(colours = c('#330066','#336699','#66CC66','#FFCC33')) 
+############Figure 3H############
 
+library(msigdbr) 
+library(fgsea)
+library(Seurat)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+DefaultAssay(Bcell) <- "RNA"
+markers <- FindMarkers(Tcells, ident.1 = "MTT1_7d", ident.2 = "MTT1_0d",group.by = "group_day",
+                       min.pct = 0.1, logfc.threshold = 0)  
+markers$genes = rownames(markers)
+cluster.genes<- markers %>% arrange(desc(avg_log2FC)) %>% dplyr::select(genes, avg_log2FC)
+ranks<- deframe(cluster.genes)
+####GSEA####
+mdb_c5 <- msigdbr(species = "Homo sapiens", category = "C5")
+fgsea_sets = mdb_c5 [grep("GOBP",mdb_c5 $gs_name),] %>% split(x = .$gene_symbol, f = .$gs_name)
+length(fgsea_sets)
+fgseaRes<- fgsea(fgsea_sets, stats = ranks, nperm = 1000)
+write.csv(fgseaRes[,1:7], "Bcell_GOBP_7dvs0d.csv")
