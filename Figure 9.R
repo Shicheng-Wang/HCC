@@ -1,10 +1,10 @@
-############Figure 7A############
+############Figure 9A############
 library(immunarch)
 data <-repLoad("TCR", .coding = TRUE ,)
 tc1 <- trackClonotypes(data$data, list(1, 50), .col = "aa")
 vis(tc1)
 
-############Figure 7D-G############
+############Figure 9D-G############
 library(CellChat)
 library(ggalluvial)
 library(svglite)
@@ -120,47 +120,26 @@ for (i in 1:length(object.list)) {
   netVisual_aggregate(object.list[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i]))
 } 
 
-############Figure 7H############
-library(msigdbr) 
-library(fgsea)
-library(Seurat)
 
-DefaultAssay(expanded_TCR) <- "RNA"
-markers <- FindMarkers(expanded_TCR, ident.1 = "MTT1_7d", ident.2 = "MTT1_0d",group.by = "group_day",
-                       min.pct = 0.25, logfc.threshold = 0)  
-markers$genes = rownames(markers)
-cluster.genes<- markers %>% arrange(desc(avg_log2FC)) %>% dplyr::select(genes, avg_log2FC)
-ranks<- deframe(cluster.genes)
-####GSEA####
-mdb_c5 <- msigdbr(species = "Homo sapiens", category = "C5")
-fgsea_sets = mdb_c5 [grep("GOBP",mdb_c5 $gs_name),] %>% split(x = .$gene_symbol, f = .$gs_name)
-length(fgsea_sets)
-fgseaRes<- fgsea(fgsea_sets, stats = ranks, nperm = 1000)
-write.csv(fgseaRes[,1:7], "expanded_TCR_GOBP_7dvs0d.csv")
-
-############Figure 7I############
-mdb_c2 <- msigdbr(species = "Homo sapiens", category = "C2")## 定义基因集，选取C2
-fgsea_sets = mdb_c2 [grep("KEGG",mdb_c2 $gs_name),] %>% split(x = .$gene_symbol, f = .$gs_name)
-#fgsea_sets = mdb_c2 %>% split(x = .$gene_symbol, f = .$gs_name)
+############Figure 9H############
+mdb_c2 <- msigdbr(species = "Homo sapiens", category = "C5")## 定义基因集，选取C2
+fgsea_sets = mdb_c2 [grep("GO",mdb_c2 $gs_name),] %>% split(x = .$gene_symbol, f = .$gs_name)
 length(fgsea_sets)
 fgseaRes<- fgsea(fgsea_sets, stats = ranks, nperm = 1000) #运行fgsea
-plotEnrichment(fgsea_sets[["KEGG_T_CELL_RECEPTOR_SIGNALING_PATHWAY"]],ranks) + labs(title="KEGG_T_CELL_RECEPTOR_SIGNALING_PATHWAY")
+plotEnrichment(fgsea_sets[["GOMF_MHC_CLASS_I_PROTEIN_BINDING"]],ranks) + labs(title="GOMF_MHC_CLASS_I_PROTEIN_BINDING")
+plotEnrichment(fgsea_sets[["GOMF_ANTIGEN_BINDING"]],ranks) + labs(title="GOMF_ANTIGEN_BINDING")
+plotEnrichment(fgsea_sets[["GOMF_MHC_PROTEIN_BINDING"]],ranks) + labs(title="GOMF_MHC_PROTEIN_BINDING")
+plotEnrichment(fgsea_sets[["GOMF_PEPTIDE_ANTIGEN_BINDING"]],ranks) + labs(title="GOMF_PEPTIDE_ANTIGEN_BINDING")
+plotEnrichment(fgsea_sets[["GOBP_ANTIGEN_RECEPTOR_MEDIATED_SIGNALING_PATHWAY"]],ranks) + 
+                                labs(title="GOBP_ANTIGEN_RECEPTOR_MEDIATED_SIGNALING_PATHWAY")
+plotEnrichment(fgsea_sets[["GOCC_MHC_CLASS_II_PROTEIN_COMPLEX"]],ranks) + labs(title="GOCC_MHC_CLASS_II_PROTEIN_COMPLEX")
 
-mdb_c2 <- msigdbr(species = "Homo sapiens", category = "H")
-fgsea_sets = mdb_c2 [grep("HALLMARK",mdb_c2 $gs_name),] %>% split(x = .$gene_symbol, f = .$gs_name)
-#fgsea_sets = mdb_c2 %>% split(x = .$gene_symbol, f = .$gs_name)
-length(fgsea_sets)
-fgseaRes<- fgsea(fgsea_sets, stats = ranks, nperm = 1000) 
-plotEnrichment(fgsea_sets[["HALLMARK_TNFA_SIGNALING_VIA_NFKB"]],ranks) + labs(title="HALLMARK_TNFA_SIGNALING_VIA_NFKB") 
-
-############Figure 7J############
+############Figure 9I############
 
 library(ggplot2)
 library(UCell)
 library(ggsignif)
 markers <- list()
-markers$naive <- c("TCF7", "CCR7", "SELL", "LEF1")
-markers$dysfunction <- c("PDCD1", "CTLA4", "TIGIT", "HAVCR2", "LAG3", "LAYN","TOX")
 markers$cytotoxic <- c("PRF1","IFNG", "GZMA", "GZMB", "GZMH", "GNLY",  "NKG7",
                        "KLRK1","KLRB1","KLRD1","CTSW","CST7")
 expanded_TCR_UCell <- AddModuleScore_UCell(Tcell, features = markers)
