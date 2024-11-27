@@ -96,14 +96,7 @@ ggplot(data, aes(x=cellid,y=naive_UCell,fill=cellid,color=cellid) ) +
         axis.text.y = element_text(size=10),
         plot.title = element_text(hjust = 0.5),
         legend.position = 'none')+
-  labs(x=NULL,y=NULL,title = "naive_UCell")+ 
-  geom_jitter_rast(col="#00000033", pch=19,cex=2, position = position_jitter(0.2))+
-  geom_boxplot(position=position_dodge(0),outliers = F,)+
-  scale_fill_manual(values = colors)+
-  geom_boxplot(position=position_dodge(0),color='black',
-               outlier.colour  = NA,outlier.fill=NA,outlier.shape=NA)+
-  geom_signif(comparisons =  list(c("MTT1_0d", "MTT1_7d")),y_position= 0.78,  tip_length = 0.04, vjust=0.2)+
-  geom_signif(comparisons =  list(c("MTT1_0d", "MTT2_30d")),y_position= 0.83,  tip_length = 0.04, vjust=0.2) 
+  labs(x=NULL,y=NULL,title = "naive_UCell")
 
 ############Figure 4G############
 library(multtest)
